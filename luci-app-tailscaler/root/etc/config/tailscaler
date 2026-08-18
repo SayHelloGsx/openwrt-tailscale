@@ -2,6 +2,7 @@ config settings
 	option enabled '0'
 	option acceptRoutes '0'
 	option advertiseRoutes ''
+	option advertiseExitNode '0'
 	option hostname ''
 	option loginServer ''
 	option authKey ''

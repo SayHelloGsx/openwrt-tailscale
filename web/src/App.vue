@@ -72,6 +72,19 @@
                 </div>
                 <!--  -->
                 <div class="cbi-value">
+                    <label class="cbi-value-title">作为 Exit Node</label>
+                    <div class="cbi-value-field">
+                        <div class="cbi-checkbox">
+                            <input name="advertiseexitnode" type="checkbox" :value="false" v-model="config.advertiseExitNode">
+                            <label></label>
+                        </div>
+                        <div class="cbi-value-description">
+                            允许其他 Tailscale 设备将本机作为出口节点
+                        </div>
+                    </div>
+                </div>
+                <!--  -->
+                <div class="cbi-value">
                     <label class="cbi-value-title">设备名称</label>
                     <div class="cbi-value-field">
                         <div>

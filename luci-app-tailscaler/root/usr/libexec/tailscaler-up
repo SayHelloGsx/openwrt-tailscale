@@ -1,0 +1,15 @@
+#!/bin/sh
+
+advertise_exit_node="$1"
+shift
+
+/usr/sbin/tailscale up "$@" || {
+	logger -t tailscaler 'tailscale up failed; skipping exit-node configuration'
+	exit 1
+}
+
+if [ "$advertise_exit_node" = 1 ]; then
+	/usr/sbin/tailscale set --advertise-exit-node
+else
+	/usr/sbin/tailscale set --advertise-exit-node=false
+fi
