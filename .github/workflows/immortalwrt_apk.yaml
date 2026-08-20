@@ -131,9 +131,23 @@ jobs:
           chmod 755 -R "${SDK_NAME}/package/${PACKAGE_NAME}"
           make -C "${SDK_NAME}" -j16 V=s "package/${PACKAGE_NAME}/compile"
 
-      - name: Upload APK
+      - name: Create iStore RUN installer
+        run: |
+          apk_path="$(find "${SDK_NAME}/bin/packages/${SDK_ARCH}" -type f -name "${PACKAGE_NAME}-*.apk" -print -quit)"
+          if [ -z "$apk_path" ]; then
+            echo "Built APK was not found." >&2
+            exit 1
+          fi
+          mkdir -p artifacts
+          cp "$apk_path" artifacts/
+          sh scripts/create-istore-run.sh \
+            "$apk_path" \
+            "artifacts/${PACKAGE_NAME}-immortalwrt-25.12.1-${{ matrix.target }}-${SDK_ARCH}.run" \
+            "${SDK_ARCH}"
+
+      - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PACKAGE_NAME }}-immortalwrt-25.12.1-${{ matrix.target }}-${{ env.SDK_ARCH }}
-          path: ${{ env.SDK_NAME }}/bin/packages/${{ env.SDK_ARCH }}/**/${{ env.PACKAGE_NAME }}-*.apk
+          path: artifacts/*
           if-no-files-found: error
