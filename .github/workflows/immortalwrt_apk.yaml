@@ -114,8 +114,16 @@ jobs:
           CONFIG_LUCI_LANG_zh_Hans=y
           CONFIG_LUCI_LANG_zh-cn=y
           EOF
+          "${SDK_NAME}/scripts/config" --file "${SDK_NAME}/.config" \
+            --disable ALL_KMODS \
+            --disable ALL_NONSHARED
           make -C "${SDK_NAME}" defconfig
           sed -i 's/^CONFIG_PACKAGE_\(.*\)=m$/# CONFIG_PACKAGE_\1 is not set/' "${SDK_NAME}/.config"
+          if grep -Eq '^CONFIG_(ALL_KMODS|ALL_NONSHARED)=y$' "${SDK_NAME}/.config"; then
+            grep -E '^CONFIG_(ALL_KMODS|ALL_NONSHARED)=' "${SDK_NAME}/.config"
+            exit 1
+          fi
+          grep -E '^(# )?CONFIG_(ALL_KMODS|ALL_NONSHARED)' "${SDK_NAME}/.config"
 
       - name: Build APK
         run: |
