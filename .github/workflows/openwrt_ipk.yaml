@@ -48,12 +48,12 @@ jobs:
     steps:
       # 拉取项目代码
       - name: Checkout the code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 安装 nodejs
       # https://github.com/marketplace/actions/setup-node-js-environment
       - name: Setup Nodejs
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
 
       # 安装 pnpm
       - run: |
