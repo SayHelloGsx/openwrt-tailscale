@@ -4,6 +4,7 @@ declare interface ResponseRunning {
 declare interface ResponseConfig {
     enabled?: boolean
     acceptRoutes?: boolean
+    advertiseExitNode?: boolean
     hostname?: string
     advertiseRoutes?: string
     loginServer?: string

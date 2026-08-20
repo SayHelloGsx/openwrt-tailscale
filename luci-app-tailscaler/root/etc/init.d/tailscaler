@@ -7,6 +7,7 @@ USE_PROCD=1
 get_config() {
 	config_get_bool enabled $1 enabled 1
 	config_get_bool acceptRoutes $1 acceptRoutes 0
+	config_get_bool advertiseExitNode $1 advertiseExitNode 0
 	config_get loginServer $1 loginServer ""
 	config_get authkey $1 authkey ""
 	config_get hostname $1 hostname ""
@@ -26,9 +27,9 @@ start_service() {
 	logger -t tailscaler 'start tailscaler'
 	# 
 	procd_open_instance
-	procd_set_param command /usr/sbin/tailscale up --reset
+	procd_set_param command /bin/sh /usr/libexec/tailscaler-up "$advertiseExitNode" --reset
 	if [ -n "$loginServer" ]; then
-		procd_append_param command --login-server "$loginServer" 
+		procd_append_param command --login-server "$loginServer"
 	fi
 	if [ -n "$authkey" ]; then
 		procd_append_param command --authkey "$authkey" 
