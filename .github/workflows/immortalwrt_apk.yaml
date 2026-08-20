@@ -7,25 +7,53 @@ on:
         description: "APK version"
         required: true
         default: "0.0.1"
+      target:
+        description: 'build target ["arm64", "x64", "mipsel"]'
+        required: true
+        default: "x64"
 
 env:
   TZ: Asia/Shanghai
   PACKAGE_NAME: luci-app-tailscaler
-  SDK_NAME: immortalwrt-sdk-25.12.1-x86-64_gcc-14.3.0_musl.Linux-x86_64
-  SDK_URL: https://downloads.immortalwrt.org/releases/25.12.1/targets/x86/64/
-  SDK_ARCH: x86_64
-  SDK_SHA256: 02ad8cfc775001ccae8e9282d19696de54e3ab3963f005737ad61f8698263edd
 
 permissions:
   contents: read
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Detect build target
+        id: set-matrix
+        env:
+          MATRIX_TARGET: ${{ github.event.inputs.target }}
+        run: |
+          if [ "x${MATRIX_TARGET}" = "x" ] || [ "x${MATRIX_TARGET}" = "xall" ]; then
+            echo 'matrix={"target":["arm64","x64","mipsel"]}' >> "$GITHUB_OUTPUT"
+          else
+            targets=""
+            for target in ${MATRIX_TARGET}; do
+              targets="$targets, \"$target\""
+            done
+            echo "matrix={\"target\":[${targets#, }]}" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: matrix
     runs-on: ubuntu-22.04
-    name: Build APK for ImmortalWrt 25.12.1 x86_64
+    name: Build APK for ${{ matrix.target }}
+    strategy:
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4
+
+      - name: Import SDK environment
+        env:
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: cat ".github/workflows/immortalwrt-${MATRIX_TARGET}.env" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -68,9 +96,9 @@ jobs:
 
       - name: Unpack SDK
         run: |
-          mkdir ~/immortalwrt-sdk
-          tar -xf "${SDK_NAME}.tar.zst" --strip-components=1 -C ~/immortalwrt-sdk
-          ln -s "${HOME}/immortalwrt-sdk" "${SDK_NAME}"
+          mkdir "${HOME}/immortalwrt-sdk-${{ matrix.target }}"
+          tar -xf "${SDK_NAME}.tar.zst" --strip-components=1 -C "${HOME}/immortalwrt-sdk-${{ matrix.target }}"
+          ln -s "${HOME}/immortalwrt-sdk-${{ matrix.target }}" "${SDK_NAME}"
 
       - name: Prepare feeds
         run: |
@@ -97,6 +125,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}-immortalwrt-25.12.1-${{ env.SDK_ARCH }}
+          name: ${{ env.PACKAGE_NAME }}-immortalwrt-25.12.1-${{ matrix.target }}-${{ env.SDK_ARCH }}
           path: ${{ env.SDK_NAME }}/bin/packages/${{ env.SDK_ARCH }}/**/${{ env.PACKAGE_NAME }}-*.apk
           if-no-files-found: error
