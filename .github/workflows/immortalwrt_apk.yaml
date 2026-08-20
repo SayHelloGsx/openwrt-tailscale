@@ -110,18 +110,11 @@ jobs:
       - name: Configure SDK
         run: |
           cp -r "./${PACKAGE_NAME}/" "${SDK_NAME}/package/"
-          sed -i \
-            -e '/^CONFIG_ALL=/d' \
-            -e '/^# CONFIG_ALL is not set$/d' \
-            -e '/^CONFIG_ALL_KMODS=/d' \
-            -e '/^# CONFIG_ALL_KMODS is not set$/d' \
-            -e '/^CONFIG_ALL_NONSHARED=/d' \
-            -e '/^# CONFIG_ALL_NONSHARED is not set$/d' \
-            "${SDK_NAME}/.config"
-          cat <<EOF >>"${SDK_NAME}/.config"
+          cat <<EOF >"${SDK_NAME}/.config"
           # CONFIG_ALL is not set
           # CONFIG_ALL_KMODS is not set
           # CONFIG_ALL_NONSHARED is not set
+          CONFIG_PACKAGE_${PACKAGE_NAME}=y
           CONFIG_LUCI_LANG_zh_Hans=y
           CONFIG_LUCI_LANG_zh-cn=y
           EOF
