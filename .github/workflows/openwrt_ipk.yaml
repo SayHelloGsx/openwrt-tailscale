@@ -54,15 +54,17 @@ jobs:
       # https://github.com/marketplace/actions/setup-node-js-environment
       - name: Setup Nodejs
         uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       # 安装 pnpm
       - run: |
-          npm install pnpm -g
+          npm install pnpm@8.15.9 -g
 
       # 打包 web 项目
       - run: |
           cd web
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm run build
 
       # 复制 web至 luci
