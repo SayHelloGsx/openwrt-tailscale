@@ -105,17 +105,17 @@ jobs:
           grep -E '^src-git (base|packages|luci) ' "${SDK_NAME}/feeds.conf.default" > "${SDK_NAME}/feeds.conf"
           cd "${SDK_NAME}"
           ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          ./scripts/feeds install tailscale luci-compat
 
       - name: Configure SDK
         run: |
           cp -r "./${PACKAGE_NAME}/" "${SDK_NAME}/package/"
-          cat <<EOF >"${SDK_NAME}/.config"
-          # CONFIG_SIGNED_PACKAGES is not set
+          cat <<EOF >>"${SDK_NAME}/.config"
           CONFIG_LUCI_LANG_zh_Hans=y
           CONFIG_LUCI_LANG_zh-cn=y
           EOF
           make -C "${SDK_NAME}" defconfig
+          sed -i 's/^CONFIG_PACKAGE_\(.*\)=m$/# CONFIG_PACKAGE_\1 is not set/' "${SDK_NAME}/.config"
 
       - name: Build APK
         run: |
