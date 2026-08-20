@@ -1,0 +1,102 @@
+name: Build ImmortalWrt APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "APK version"
+        required: true
+        default: "0.0.1"
+
+env:
+  TZ: Asia/Shanghai
+  PACKAGE_NAME: luci-app-tailscaler
+  SDK_NAME: immortalwrt-sdk-25.12.1-x86-64_gcc-14.3.0_musl.Linux-x86_64
+  SDK_URL: https://downloads.immortalwrt.org/releases/25.12.1/targets/x86/64/
+  SDK_ARCH: x86_64
+  SDK_SHA256: 02ad8cfc775001ccae8e9282d19696de54e3ab3963f005737ad61f8698263edd
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    name: Build APK for ImmortalWrt 25.12.1 x86_64
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install pnpm@8.15.9 -g
+
+      - name: Build web project
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Copy web assets
+        run: |
+          mkdir "${PACKAGE_NAME}/htdocs"
+          cp -r web/dist/luci-static "${PACKAGE_NAME}/htdocs"
+
+      - name: Set package version
+        run: |
+          sed -i 's/PKG_VERSION:=\(.*\)/PKG_VERSION:=${{ inputs.version }}/g' "${PACKAGE_NAME}/Makefile"
+
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo swapoff -a || true
+          sudo rm -rf /swapfile /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev libc6-dev-i386 subversion flex uglifyjs gcc-multilib g++-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler antlr3 gperf rsync zstd
+          sudo -E apt-get -qq clean
+          sudo timedatectl set-timezone "$TZ"
+
+      - name: Download SDK
+        run: |
+          wget --https-only "${SDK_URL}${SDK_NAME}.tar.zst"
+          echo "${SDK_SHA256}  ${SDK_NAME}.tar.zst" | sha256sum --check
+
+      - name: Unpack SDK
+        run: |
+          mkdir ~/immortalwrt-sdk
+          tar -xf "${SDK_NAME}.tar.zst" --strip-components=1 -C ~/immortalwrt-sdk
+          ln -s "${HOME}/immortalwrt-sdk" "${SDK_NAME}"
+
+      - name: Prepare feeds
+        run: |
+          grep -E '^src-git (base|packages|luci) ' "${SDK_NAME}/feeds.conf.default" > "${SDK_NAME}/feeds.conf"
+          cd "${SDK_NAME}"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure SDK
+        run: |
+          cp -r "./${PACKAGE_NAME}/" "${SDK_NAME}/package/"
+          cat <<EOF >"${SDK_NAME}/.config"
+          # CONFIG_SIGNED_PACKAGES is not set
+          CONFIG_LUCI_LANG_zh_Hans=y
+          CONFIG_LUCI_LANG_zh-cn=y
+          EOF
+          make -C "${SDK_NAME}" defconfig
+
+      - name: Build APK
+        run: |
+          chmod 755 -R "${SDK_NAME}/package/${PACKAGE_NAME}"
+          make -C "${SDK_NAME}" -j16 V=s "package/${PACKAGE_NAME}/compile"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}-immortalwrt-25.12.1-${{ env.SDK_ARCH }}
+          path: ${{ env.SDK_NAME }}/bin/packages/${{ env.SDK_ARCH }}/**/${{ env.PACKAGE_NAME }}-*.apk
+          if-no-files-found: error

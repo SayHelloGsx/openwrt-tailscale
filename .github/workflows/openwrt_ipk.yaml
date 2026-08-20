@@ -1,11 +1,11 @@
 # 工作流程的名字
 # https://github.com/subosito/flutter-action
-name: build Openwrt Ipk
+name: Build OpenWrt IPK
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "ipk version"
+        description: "IPK version"
         required: true
         default: "0.0.1"
       target:
@@ -42,7 +42,7 @@ jobs:
   build:
     needs: matrix
     runs-on: ubuntu-22.04
-    name: Build IPKs for ${{ matrix.target }}
+    name: Build IPK for ${{ matrix.target }}
     strategy:
       matrix: ${{fromJson(needs.matrix.outputs.matrix)}}
     steps:
@@ -95,12 +95,12 @@ jobs:
           # curl -fsSL https://raw.githubusercontent.com/P3TERX/dotfiles/master/.bashrc >> ~/.bashrc
 
       - name: Download SDK
-        run: wget ${SDK_URL}${SDK_NAME}.tar.xz
+        run: wget "${SDK_URL}${SDK_NAME}.tar.xz"
 
       - name: Unpack SDK
         run: |
           mkdir ~/openwrt-sdk
-          tar -xJf `pwd`/${SDK_NAME}.tar.xz --strip-components=1 -C ~/openwrt-sdk
+          tar -xJf "${SDK_NAME}.tar.xz" --strip-components=1 -C ~/openwrt-sdk
           ln -s ${HOME}/openwrt-sdk ${SDK_NAME}
 
       - name: Clean Code
@@ -111,6 +111,7 @@ jobs:
           grep -lFr '$(call KernelPackage,' ${SDK_NAME}/package/kernel | xargs -rn1 sed -i 's/ FILES:=/ XFILES:=/g' || true
           find ${SDK_NAME}/target/linux -name 'modules.mk' | xargs -rn1 sed -i 's/ FILES:=/ XFILES:=/g' || true
           grep 'src-git base ' ${SDK_NAME}/feeds.conf.default > ${SDK_NAME}/feeds.conf
+          grep 'src-git packages ' ${SDK_NAME}/feeds.conf.default >> ${SDK_NAME}/feeds.conf
           grep 'src-git luci ' ${SDK_NAME}/feeds.conf.default >> ${SDK_NAME}/feeds.conf
 
       - name: Write Config

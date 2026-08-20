@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI support for tailscale
 PKG_VERSION:=0.0.1
-LUCI_DEPENDS:=+tailscale
+LUCI_DEPENDS:=+tailscale +luci-compat
 
 define Package/luci-app-tailscaler/conffiles
 /etc/config/tailscaler
