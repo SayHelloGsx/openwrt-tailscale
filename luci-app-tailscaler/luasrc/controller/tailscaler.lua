@@ -1,5 +1,20 @@
 local http = require "luci.http"
+local jsonc = require "luci.jsonc"
+local sys = require "luci.sys"
 module("luci.controller.tailscaler", package.seeall)
+
+local boolean_options = {
+	"enabled",
+	"acceptRoutes",
+	"advertiseExitNode"
+}
+
+local string_options = {
+	"loginServer",
+	"authkey",
+	"hostname",
+	"advertiseRoutes"
+}
 
 function index()
 	if not nixio.fs.access("/etc/config/tailscaler") then
@@ -39,61 +54,81 @@ end
 
 function submitTailscaleConfig(req)
 	local uci = require "luci.model.uci".cursor()
-	-- enabled
-	if req.enabled ~= nil then
-		uci:set("tailscaler","@settings[0]","enabled",req.enabled)
+
+	for _, option in ipairs(boolean_options) do
+		if req[option] ~= nil then
+			uci:set("tailscaler", "@settings[0]", option, req[option] and "1" or "0")
+		end
 	end
-	-- login server url
-	if req.loginServer ~= nil then
-		uci:set("tailscaler","@settings[0]","loginServer",req.loginServer)
+
+	for _, option in ipairs(string_options) do
+		if req[option] ~= nil then
+			uci:set("tailscaler", "@settings[0]", option, req[option])
+		end
 	end
-	-- authkey
-	if req.authkey ~= nil then
-		uci:set("tailscaler","@settings[0]","authkey",req.authkey)
+
+	return uci:commit("tailscaler")
+end
+
+local function validateTailscaleConfig(req)
+	if type(req) ~= "table" or next(req) == nil then
+		return false, "invalid request"
 	end
-	-- hostname
-	if req.hostname ~= nil then
-		uci:set("tailscaler","@settings[0]","hostname",req.hostname)
+
+	for _, option in ipairs(boolean_options) do
+		if req[option] ~= nil and type(req[option]) ~= "boolean" then
+			return false, option .. " must be a boolean"
+		end
 	end
-	-- acceptRoutes
-	if req.acceptRoutes ~= nil then
-		uci:set("tailscaler","@settings[0]","acceptRoutes",req.acceptRoutes)
+
+	for _, option in ipairs(string_options) do
+		if req[option] ~= nil and type(req[option]) ~= "string" then
+			return false, option .. " must be a string"
+		end
 	end
-	-- advertiseRoutes
-	if req.advertiseRoutes ~= nil then
-		uci:set("tailscaler","@settings[0]","advertiseRoutes",req.advertiseRoutes)
-	end
-	-- advertiseExitNode
-	if req.advertiseExitNode ~= nil then
-		uci:set("tailscaler","@settings[0]","advertiseExitNode",req.advertiseExitNode and "1" or "0")
-	end
-	uci:commit("tailscaler")  
+
+	return true
+end
+
+local function writeError(status, message)
+	http.status(status, message)
+	http.write_json({
+		success = false,
+		error = message
+	})
 end
 
 function tailscale_config()
-	local http = require "luci.http"
 	http.prepare_content("application/json")
 	local method = http.getenv("REQUEST_METHOD")
 	if method == "post" or method == "POST" then
-		local content = http.content()
-		local jsonc = require "luci.jsonc"
-		local json_parse = jsonc.parse
-		local req = json_parse(content)
-		if req == nil or next(req) == nil then
-			luci.http.write_json({
-				error =  "invalid request"
-			})
-			return 
+		local req = jsonc.parse(http.content() or "")
+		local valid, validation_error = validateTailscaleConfig(req)
+		if not valid then
+			writeError(400, validation_error)
+			return
 		end
-		submitTailscaleConfig(req)
-		if req.enabled == true then
-			luci.util.exec("/etc/init.d/tailscaler start")
-		else
-			luci.util.exec("/etc/init.d/tailscaler stop")
+
+		if not submitTailscaleConfig(req) then
+			writeError(500, "failed to save configuration")
+			return
 		end
+
+		local result = sys.call("/etc/init.d/tailscaler reload >/dev/null 2>&1")
+		if result ~= 0 then
+			writeError(500, "configuration was saved but could not be applied; check the tailscaler system log")
+			return
+		end
+
+		http.write_json({
+			success = true,
+			config = getTailscaleConfig()
+		})
+		return
 	end
+
 	local response = getTailscaleConfig()
-    luci.http.write_json(response)
+    http.write_json(response)
 end
 
 function tailscale_status()

@@ -5,4 +5,4 @@ config settings
 	option advertiseExitNode '0'
 	option hostname ''
 	option loginServer ''
-	option authKey ''
+	option authkey ''

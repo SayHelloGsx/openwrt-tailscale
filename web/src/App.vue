@@ -143,8 +143,13 @@
             </div>
         </div>
         <!--  -->
+        <div v-if="submitError" class="alert-message error" role="alert">
+            {{ submitError }}
+        </div>
         <span class="cbi-page-actions control-group">
-            <button class="btn cbi-button cbi-button-apply" @click="onSubmit" :disabled="disabled">保存并应用</button>
+            <button class="btn cbi-button cbi-button-apply" @click="onSubmit" :disabled="disabled">
+                {{ disabled ? "应用中..." : "保存并应用" }}
+            </button>
         </span>
     </div>
 </template>
@@ -153,6 +158,7 @@ import { ref } from 'vue';
 const BASEURL = "/cgi-bin/luci/admin/services/tailscaler"
 const loading = ref(true)
 const disabled = ref(false)
+const submitError = ref("")
 const config = ref<ResponseConfig>({})
 const status = ref<ResponseStatus>({})
 const user = ref<ResponseStatusUser>({})
@@ -241,6 +247,8 @@ const getInterval = async () => {
 getInterval()
 getData()
 const onSubmit = async () => {
+    disabled.value = true
+    submitError.value = ""
     try {
         const resp = await request("/config", {
             method: "POST",
@@ -249,15 +257,19 @@ const onSubmit = async () => {
             },
             body: JSON.stringify(config.value),
         })
-        if (resp) {
-
+        const result = await resp.json() as ResponseConfigMutation
+        if (!resp.ok || !result.success) {
+            throw new Error(result.error || "配置应用失败")
         }
-    } catch (error) {
-        console.log(error);
-    } finally {
-        location.reload()
-    }
 
+        config.value = result.config || config.value
+        await getStatus()
+    } catch (error) {
+        console.log(error)
+        submitError.value = error instanceof Error ? error.message : "配置应用失败"
+    } finally {
+        disabled.value = false
+    }
 }
 const onLogout = async () => {
     if (!confirm("是否注销当前登录并且解绑当前设备？")) {

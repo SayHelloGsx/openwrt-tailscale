@@ -1,15 +1,32 @@
 #!/bin/sh
 
 advertise_exit_node="$1"
+tailscale_bin="${TAILSCALE_BIN:-/usr/sbin/tailscale}"
 shift
 
-/usr/sbin/tailscale up "$@" || {
+case "$advertise_exit_node" in
+	0|1) ;;
+	*)
+		logger -t tailscaler "invalid advertiseExitNode value: $advertise_exit_node"
+		exit 2
+		;;
+esac
+
+"$tailscale_bin" up "$@" || {
 	logger -t tailscaler 'tailscale up failed; skipping exit-node configuration'
 	exit 1
 }
 
 if [ "$advertise_exit_node" = 1 ]; then
-	/usr/sbin/tailscale set --advertise-exit-node
+	"$tailscale_bin" set --advertise-exit-node || {
+		logger -t tailscaler 'failed to enable exit-node advertisement'
+		exit 1
+	}
+	logger -t tailscaler 'exit-node advertisement enabled'
 else
-	/usr/sbin/tailscale set --advertise-exit-node=false
+	"$tailscale_bin" set --advertise-exit-node=false || {
+		logger -t tailscaler 'failed to disable exit-node advertisement'
+		exit 1
+	}
+	logger -t tailscaler 'exit-node advertisement disabled'
 fi

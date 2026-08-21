@@ -11,6 +11,12 @@ declare interface ResponseConfig {
     authkey?: string
 }
 
+declare interface ResponseConfigMutation {
+    success: boolean
+    error?: string
+    config?: ResponseConfig
+}
+
 // 
 declare interface ResponseStatus {
     Version?: string
